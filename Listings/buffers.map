@@ -11,14 +11,14 @@ Output file:  ./Binaries/BUFFERS.COM
 -- Sections (summary) ---------------------------------------------------------
 
 Vstart            Start             Stop              Length    Class     Name
-               0                 0               163  00000163  progbits  .text
+               0                 0               19E  0000019E  progbits  .text
 
 -- Sections (detailed) --------------------------------------------------------
 
 ---- Section .text ------------------------------------------------------------
 
 class:     progbits
-length:                 163
+length:                 19E
 start:                    0
 align:     not defined
 follows:   not defined
@@ -228,30 +228,34 @@ Value     Name
 ---- Section .text ------------------------------------------------------------
 
 Real              Virtual           Name
-              19                19  sysVars.buildBufferLine
-              24                24  sysVars.notFree
-              26                26  sysVars.putInLetter
-              3A                3A  sysVars.notDosBuf
-              45                45  sysVars.notFatBuffer
-              50                50  sysVars.notDirBuffer
-              55                55  sysVars.putType
-              69                69  sysVars.notRef
-              7D                7D  sysVars.notDirty
-              AA                AA  sysVars.notZero
-              B1                B1  sysVars.dpfb0
-              C1                C1  sysVars.dpfb00
-              C5                C5  sysVars.dpfb01
-              D5                D5  sysVars.dpfb1
-              E1                E1  sysVars.dpfb10
-              E3                E3  sysVars.dpfb11
-              E8                E8  sysVars.dpfb2
-              F8                F8  sysVars.dpfb20
-              FE                FE  sysVars.dpfb21
-             12C               12C  crlf
-             12F               12F  bufferLine
-             136               136  bufferLine.driveLetter
-             140               140  bufferLine.bufferType
-             14B               14B  bufferLine.bufferRefFlag
-             156               156  bufferLine.bufferDirtFlag
-             163               163  bufferLine.bufferSectorNumber
+              19                19  buildBufferLine
+              24                24  buildBufferLine.notFree
+              26                26  buildBufferLine.putInLetter
+              3A                3A  buildBufferLine.notDosBuf
+              45                45  buildBufferLine.notFatBuffer
+              50                50  buildBufferLine.notDirBuffer
+              55                55  buildBufferLine.putType
+              69                69  buildBufferLine.notRef
+              7D                7D  buildBufferLine.notDirty
+              E1                E1  printqword
+              F5                F5  printqword.notZero
+              FC                FC  printqword.dpfb0
+             10C               10C  printqword.dpfb00
+             110               110  printqword.dpfb01
+             120               120  printqword.dpfb1
+             12C               12C  printqword.dpfb10
+             12E               12E  printqword.dpfb11
+             133               133  printqword.dpfb2
+             143               143  printqword.dpfb20
+             149               149  printqword.dpfb21
+             151               151  ..@19._ret
+             152               152  crlf
+             155               155  bufferLine
+             15C               15C  bufferLine.driveLetter
+             166               166  bufferLine.bufferType
+             171               171  bufferLine.bufferRefFlag
+             17C               17C  bufferLine.bufferDirtFlag
+             189               189  bufferLine.bufferSectorNumber
+             189               189  bufferend
+             19D               19D  buffernum
 

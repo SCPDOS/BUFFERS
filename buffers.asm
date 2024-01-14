@@ -15,7 +15,7 @@ freeDriveMarker equ "!"
     mov eax, 5200h
     int 21h
     mov rbx, qword [rbx + sysVars.bufHeadPtr]   ;Get the start of the buffer head pointer
-.buildBufferLine:
+buildBufferLine:
     ;Here we start building it properly
     mov al, byte [rbx + bufferHdr.driveNumber]
     cmp al, -1
@@ -63,6 +63,28 @@ freeDriveMarker equ "!"
 
     mov rax, qword [rbx + bufferHdr.bufferLBA]  ;Get the LBA number
     push rbx    ;Save the ptr to the buffer on the stack
+    call printqword
+    ;Here we are done, walk the buffer chain
+    pop rbx
+
+    lea rdx, crlf
+    mov eax, 0900h
+    int 21h    
+    inc byte [buffernum]
+    mov rbx, qword [rbx + bufferHdr.nextBufPtr]
+    cmp rbx, -1
+    jne buildBufferLine
+
+    lea rdx, bufferend
+    mov eax, 0900h
+    int 21h
+    
+    movzx eax, byte [buffernum]
+    call printqword
+    mov eax, 4C00h
+    int 21h
+
+printqword:
 ;Takes the qword in eax and prints its decimal representation
     xor ecx, ecx
     xor ebx, ebx    ;Store upper 8 nybbles here
@@ -113,21 +135,8 @@ freeDriveMarker equ "!"
     int 21h
     dec ebp
     jnz .dpfb2
-    ;Here we are done, walk the buffer chain
-    pop rbx
-
-    lea rdx, crlf
-    mov eax, 0900h
-    int 21h    
-
-    mov rbx, qword [rbx + bufferHdr.nextBufPtr]
-    cmp rbx, -1
-    jne .buildBufferLine
-    mov eax, 4C00h
-    int 21h
-
+    return
 crlf:   db 0Ah,0Dh,"$"
-
 bufferLine:
     db "Drive: "
 .driveLetter:   ;Exclaimation mark means free
@@ -140,3 +149,6 @@ bufferLine:
     db "  | Sector: $"
 .bufferSectorNumber: 
 bufferLineLen   equ $ - bufferLine
+
+bufferend: db "Number of Buffers: $"
+buffernum: db 0
