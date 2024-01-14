@@ -1,17 +1,34 @@
-; Walks the buffer chain and gives prints out the state of the buffers.
 
+; Buffers!
+
+; Walks the buffer chain and gives prints out the state of the buffers.
+;If you pass a /P (or -P on if you unix up the system), it will pause on 
+; each page.
 [map all ./Listings/buffers.map]
 [DEFAULT REL]
 BITS 64
 %include "./Include/dosMacro.mac"
 %include "./Include/dosStruc.inc"
 %include "./Include/dosError.inc"
-freeDriveMarker equ "!"
-
-    lea rdx, crlf
-    mov eax, 0900h
-    int 21h    
-    
+freeDriveMarker equ "-"
+    mov eax, 3700h  ;Get switch char in dl
+    int 21h
+    mov bl, dl  ;Save the switch char in bl
+    mov eax, 6101h  ;Get cmdLineStruc in rdx
+    int 21h
+    movzx ecx, byte [rdx + cmdLineArgPtr.parmList]
+    lea rdi, qword [rdx + cmdLineArgPtr.progTail]
+    mov al, bl  
+    repne scasb   ;Scan for the switch char
+    jne .noSwitch 
+    mov al, byte [rdi]
+    cmp al, "P"
+    je .switch
+    cmp al, "p"
+    jne .noSwitch
+.switch:
+    mov byte [pauseSwitch], -1  ;Set byte
+.noSwitch:
     mov eax, 5200h
     int 21h
     mov rbx, qword [rbx + sysVars.bufHeadPtr]   ;Get the start of the buffer head pointer
@@ -20,8 +37,11 @@ buildBufferLine:
     mov al, byte [rbx + bufferHdr.driveNumber]
     cmp al, -1
     jne .notFree
-    mov al, freeDriveMarker
-    jmp short .putInLetter
+    mov byte [bufferLine.driveLetter], freeDriveMarker
+    mov dword [bufferLine.bufferType], " -- "
+    mov byte [bufferLine.bufferRefFlag],"-"
+    mov byte [bufferLine.bufferDirtFlag],"-"
+    jmp short outString
 .notFree:
     add al, "A" ;Convert from 0 based drive number to drive letter
 .putInLetter:
@@ -57,6 +77,7 @@ buildBufferLine:
     mov ecx, "T"
 .notDirty:
     mov byte [bufferLine.bufferDirtFlag], cl    ;Store T/F for dirty flag
+outString:
     lea rdx, bufferLine
     mov eax, 0900h  ;Write line to STDOUT
     int 21h
@@ -66,11 +87,20 @@ buildBufferLine:
     call printqword
     ;Here we are done, walk the buffer chain
     pop rbx
-
-    lea rdx, crlf
-    mov eax, 0900h
-    int 21h    
+  
     inc byte [buffernum]
+    inc byte [lines]
+    cmp byte [lines], 20
+    jb .noPause
+    mov byte [lines], 0 ;Reset counter
+    test byte [pauseSwitch], -1 ;If not set, skip pause
+    jz .noPause
+    lea rdx, nextPage
+    mov eax, 0900h
+    int 21h
+    mov eax, 0100h
+    int 21h
+.noPause:
     mov rbx, qword [rbx + bufferHdr.nextBufPtr]
     cmp rbx, -1
     jne buildBufferLine
@@ -136,9 +166,11 @@ printqword:
     dec ebp
     jnz .dpfb2
     return
-crlf:   db 0Ah,0Dh,"$"
+crlf:       db 0Ah,0Dh,"$"
+lines:      db 0
+nextPage:   db 0Ah,0Dh,"Strike a key to continue...$"
 bufferLine:
-    db "Drive: "
+    db 0Ah,0Dh,"Drive: "
 .driveLetter:   ;Exclaimation mark means free
     db "  | Type: "
 .bufferType:  
@@ -150,5 +182,6 @@ bufferLine:
 .bufferSectorNumber: 
 bufferLineLen   equ $ - bufferLine
 
-bufferend: db "Number of Buffers: $"
+bufferend: db 0Ah,0Dh,"Number of Buffers: $"
 buffernum: db 0
+pauseSwitch: db 0   ;If set, we pause on each page

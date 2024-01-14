@@ -1,9 +1,13 @@
-     1                                  ; Walks the buffer chain and gives prints out the state of the buffers.
-     2                                  
-     3                                  [map all ./Listings/buffers.map]
-     4                                  [DEFAULT REL]
-     5                                  BITS 64
-     6                                  %include "./Include/dosMacro.mac"
+     1                                  
+     2                                  ; Buffers!
+     3                                  
+     4                                  ; Walks the buffer chain and gives prints out the state of the buffers.
+     5                                  ;If you pass a /P (or -P on if you unix up the system), it will pause on 
+     6                                  ; each page.
+     7                                  [map all ./Listings/buffers.map]
+     8                                  [DEFAULT REL]
+     9                                  BITS 64
+    10                                  %include "./Include/dosMacro.mac"
      1                              <1> 
      2                              <1> ;-------------------------------------------------------------------------------
      3                              <1> ;Generic Macros file
@@ -86,7 +90,7 @@
     80                              <1> %macro breakpoint 0
     81                              <1> xchg bx, bx
     82                              <1> %endmacro
-     7                                  %include "./Include/dosStruc.inc"
+    11                                  %include "./Include/dosStruc.inc"
      1                              <1> 
      2                              <1> ;-------------------------------------------------------;
      3                              <1> ; This include file contains miscellaneous internal     ;
@@ -308,7 +312,15 @@
    219 00000020 ????                <1>     .maxBytesSec dw ?
    220 00000022 ????????????????    <1>     .bufHeadPtr  dq ?
    221                              <1> endstruc
-     8                                  %include "./Include/dosError.inc"
+   222                              <1> 
+   223                              <1> struc cmdLineArgPtr
+   224 00000000 <res 10h>           <1>     .fcb1       db 16 dup(?)    ;First FCB,    argument 1 
+   225 00000010 <res 14h>           <1>     .fcb2       db 20 dup(?)    ;Second FCB,   argument 2
+   226                              <1>     .dta:   ;Pointer to the default DTA in the PSP
+   227 00000024 ??                  <1>     .parmList   db ?   ;Number of characters in command tail
+   228 00000025 <res 7Fh>           <1>     .progTail   db 127 dup(?) ;Default DTA/Program tail
+   229                              <1> endstruc
+    12                                  %include "./Include/dosError.inc"
      1                              <1> ;DOS Error codes
      2                              <1> 
      3                              <1> ;Extended Error Codes
@@ -395,160 +407,193 @@
     84                              <1> eClsMedia   equ 11  ;Error is on medium, i.e. wrong or damaged remdev
     85                              <1> eClsClash   equ 12  ;Resource already exists!
     86                              <1> eClsUnk     equ 13  ;Unknown class
-     9                                  freeDriveMarker equ "!"
-    10                                  
-    11 00000000 488D154B010000              lea rdx, crlf
-    12 00000007 B800090000                  mov eax, 0900h
-    13 0000000C CD21                        int 21h    
-    14                                      
-    15 0000000E B800520000                  mov eax, 5200h
-    16 00000013 CD21                        int 21h
-    17 00000015 488B5B22                    mov rbx, qword [rbx + sysVars.bufHeadPtr]   ;Get the start of the buffer head pointer
-    18                                  buildBufferLine:
-    19                                      ;Here we start building it properly
-    20 00000019 8A4308                      mov al, byte [rbx + bufferHdr.driveNumber]
-    21 0000001C 3CFF                        cmp al, -1
-    22 0000001E 7504                        jne .notFree
-    23 00000020 B021                        mov al, freeDriveMarker
-    24 00000022 EB02                        jmp short .putInLetter
-    25                                  .notFree:
-    26 00000024 0441                        add al, "A" ;Convert from 0 based drive number to drive letter
-    27                                  .putInLetter:
-    28 00000026 880530010000                mov byte [bufferLine.driveLetter], al
-    29 0000002C 8A4309                      mov al, byte [rbx + bufferHdr.bufferFlags]  ;Get the flags
-    30 0000002F A801                        test al, dosBuffer
-    31 00000031 7407                        jz .notDosBuf
-    32 00000033 B9444F5320                  mov ecx, "DOS "
-    33 00000038 EB1B                        jmp short .putType
-    34                                  .notDosBuf:
-    35 0000003A A802                        test al, fatBuffer
-    36 0000003C 7407                        jz .notFatBuffer
-    37 0000003E B946415420                  mov ecx, "FAT "
-    38 00000043 EB10                        jmp short .putType
-    39                                  .notFatBuffer:
-    40 00000045 A804                        test al, dirBuffer
-    41 00000047 7407                        jz .notDirBuffer
-    42 00000049 B944495220                  mov ecx, "DIR "
-    43 0000004E EB05                        jmp short .putType
-    44                                  .notDirBuffer:
-    45 00000050 B944415441                  mov ecx, "DATA"
-    46                                  .putType:
-    47 00000055 890D0B010000                mov dword [bufferLine.bufferType], ecx  ;Store the string
-    48 0000005B B946000000                  mov ecx, "F"
-    49 00000060 A820                        test al, refBuffer  ;Is this a refBuffer
-    50 00000062 7405                        jz .notRef
-    51 00000064 B954000000                  mov ecx, "T"
-    52                                  .notRef:
-    53 00000069 880D02010000                mov byte [bufferLine.bufferRefFlag], cl ;Store T/F for referenced flag
-    54 0000006F B946000000                  mov ecx, "F"
-    55 00000074 A840                        test al, dirtyBuffer
-    56 00000076 7405                        jz .notDirty
-    57 00000078 B954000000                  mov ecx, "T"
-    58                                  .notDirty:
-    59 0000007D 880DF9000000                mov byte [bufferLine.bufferDirtFlag], cl    ;Store T/F for dirty flag
-    60 00000083 488D15CB000000              lea rdx, bufferLine
-    61 0000008A B800090000                  mov eax, 0900h  ;Write line to STDOUT
-    62 0000008F CD21                        int 21h
-    63                                  
-    64 00000091 488B430A                    mov rax, qword [rbx + bufferHdr.bufferLBA]  ;Get the LBA number
-    65 00000095 53                          push rbx    ;Save the ptr to the buffer on the stack
-    66 00000096 E846000000                  call printqword
-    67                                      ;Here we are done, walk the buffer chain
-    68 0000009B 5B                          pop rbx
-    69                                  
-    70 0000009C 488D15AF000000              lea rdx, crlf
-    71 000000A3 B800090000                  mov eax, 0900h
-    72 000000A8 CD21                        int 21h    
-    73 000000AA FE05ED000000                inc byte [buffernum]
-    74 000000B0 488B1B                      mov rbx, qword [rbx + bufferHdr.nextBufPtr]
-    75 000000B3 4881FBFFFFFFFF              cmp rbx, -1
-    76 000000BA 0F8559FFFFFF                jne buildBufferLine
-    77                                  
-    78 000000C0 488D15C2000000              lea rdx, bufferend
-    79 000000C7 B800090000                  mov eax, 0900h
-    80 000000CC CD21                        int 21h
-    81                                      
-    82 000000CE 0FB605C8000000              movzx eax, byte [buffernum]
-    83 000000D5 E807000000                  call printqword
-    84 000000DA B8004C0000                  mov eax, 4C00h
-    85 000000DF CD21                        int 21h
-    86                                  
-    87                                  printqword:
-    88                                  ;Takes the qword in eax and prints its decimal representation
-    89 000000E1 31C9                        xor ecx, ecx
-    90 000000E3 31DB                        xor ebx, ebx    ;Store upper 8 nybbles here
-    91 000000E5 85C0                        test eax, eax
-    92 000000E7 750C                        jnz .notZero
-    93 000000E9 B930000000                  mov ecx, "0"
-    94 000000EE BD01000000                  mov ebp, 1  ;Print one digit
-    95 000000F3 EB3E                        jmp short .dpfb2
-    96                                  .notZero:
-    97 000000F5 31ED                        xor ebp, ebp  ;Use bp as #of digits counter
-    98 000000F7 BE0A000000                  mov esi, 0Ah  ;Divide by 10
-    99                                  .dpfb0:
-   100 000000FC FFC5                        inc ebp
-   101 000000FE 81FD08000000                cmp ebp, 8
-   102 00000104 7206                        jb .dpfb00
-   103 00000106 48C1E308                    shl rbx, 8    ;Space for next nybble
-   104 0000010A EB04                        jmp short .dpfb01
-   105                                  .dpfb00:
-   106 0000010C 48C1E108                    shl rcx, 8    ;Space for next nybble
-   107                                  .dpfb01:
-   108 00000110 31D2                        xor edx, edx
-   109 00000112 48F7F6                      div rsi
-   110 00000115 80C230                      add dl, '0'
-   111 00000118 80FA39                      cmp dl, '9'
-   112 0000011B 7603                        jbe .dpfb1
-   113 0000011D 80C207                      add dl, 'A'-'0'-10
-   114                                  .dpfb1:
-   115 00000120 81FD08000000                cmp ebp, 8
-   116 00000126 7204                        jb .dpfb10
-   117 00000128 88D3                        mov bl, dl ;Add the bottom bits
-   118 0000012A EB02                        jmp short .dpfb11
-   119                                  .dpfb10:
-   120 0000012C 88D1                        mov cl, dl    ;Save remainder byte
-   121                                  .dpfb11:
-   122 0000012E 4885C0                      test rax, rax
-   123 00000131 75C9                        jnz .dpfb0
-   124                                  .dpfb2:
-   125 00000133 81FD08000000                cmp ebp, 8
-   126 00000139 7208                        jb .dpfb20
-   127 0000013B 88DA                        mov dl, bl
-   128 0000013D 48C1EB08                    shr rbx, 8
-   129 00000141 EB06                        jmp short .dpfb21
-   130                                  .dpfb20:
-   131 00000143 88CA                        mov dl, cl    ;Get most sig digit into al
-   132 00000145 48C1E908                    shr rcx, 8    ;Get next digit down
-   133                                  .dpfb21:
-   134 00000149 B402                        mov ah, 02h
-   135 0000014B CD21                        int 21h
-   136 0000014D FFCD                        dec ebp
-   137 0000014F 75E2                        jnz .dpfb2
-   138                                      return
+    13                                  freeDriveMarker equ "-"
+    14 00000000 B800370000                  mov eax, 3700h  ;Get switch char in dl
+    15 00000005 CD21                        int 21h
+    16 00000007 88D3                        mov bl, dl  ;Save the switch char in bl
+    17 00000009 B801610000                  mov eax, 6101h  ;Get cmdLineStruc in rdx
+    18 0000000E CD21                        int 21h
+    19 00000010 0FB64A24                    movzx ecx, byte [rdx + cmdLineArgPtr.parmList]
+    20 00000014 488D7A25                    lea rdi, qword [rdx + cmdLineArgPtr.progTail]
+    21 00000018 88D8                        mov al, bl  
+    22 0000001A F2AE                        repne scasb   ;Scan for the switch char
+    23 0000001C 7511                        jne .noSwitch 
+    24 0000001E 8A07                        mov al, byte [rdi]
+    25 00000020 3C50                        cmp al, "P"
+    26 00000022 7404                        je .switch
+    27 00000024 3C70                        cmp al, "p"
+    28 00000026 7507                        jne .noSwitch
+    29                                  .switch:
+    30 00000028 C605F6010000FF              mov byte [pauseSwitch], -1  ;Set byte
+    31                                  .noSwitch:
+    32 0000002F B800520000                  mov eax, 5200h
+    33 00000034 CD21                        int 21h
+    34 00000036 488B5B22                    mov rbx, qword [rbx + sysVars.bufHeadPtr]   ;Get the start of the buffer head pointer
+    35                                  buildBufferLine:
+    36                                      ;Here we start building it properly
+    37 0000003A 8A4308                      mov al, byte [rbx + bufferHdr.driveNumber]
+    38 0000003D 3CFF                        cmp al, -1
+    39 0000003F 7521                        jne .notFree
+    40 00000041 C605990100002D              mov byte [bufferLine.driveLetter], freeDriveMarker
+    41 00000048 C70599010000202D2D-         mov dword [bufferLine.bufferType], " -- "
+    41 00000051 20                 
+    42 00000052 C6059D0100002D              mov byte [bufferLine.bufferRefFlag],"-"
+    43 00000059 C605A10100002D              mov byte [bufferLine.bufferDirtFlag],"-"
+    44 00000060 EB5F                        jmp short outString
+    45                                  .notFree:
+    46 00000062 0441                        add al, "A" ;Convert from 0 based drive number to drive letter
+    47                                  .putInLetter:
+    48 00000064 880577010000                mov byte [bufferLine.driveLetter], al
+    49 0000006A 8A4309                      mov al, byte [rbx + bufferHdr.bufferFlags]  ;Get the flags
+    50 0000006D A801                        test al, dosBuffer
+    51 0000006F 7407                        jz .notDosBuf
+    52 00000071 B9444F5320                  mov ecx, "DOS "
+    53 00000076 EB1B                        jmp short .putType
+    54                                  .notDosBuf:
+    55 00000078 A802                        test al, fatBuffer
+    56 0000007A 7407                        jz .notFatBuffer
+    57 0000007C B946415420                  mov ecx, "FAT "
+    58 00000081 EB10                        jmp short .putType
+    59                                  .notFatBuffer:
+    60 00000083 A804                        test al, dirBuffer
+    61 00000085 7407                        jz .notDirBuffer
+    62 00000087 B944495220                  mov ecx, "DIR "
+    63 0000008C EB05                        jmp short .putType
+    64                                  .notDirBuffer:
+    65 0000008E B944415441                  mov ecx, "DATA"
+    66                                  .putType:
+    67 00000093 890D52010000                mov dword [bufferLine.bufferType], ecx  ;Store the string
+    68 00000099 B946000000                  mov ecx, "F"
+    69 0000009E A820                        test al, refBuffer  ;Is this a refBuffer
+    70 000000A0 7405                        jz .notRef
+    71 000000A2 B954000000                  mov ecx, "T"
+    72                                  .notRef:
+    73 000000A7 880D49010000                mov byte [bufferLine.bufferRefFlag], cl ;Store T/F for referenced flag
+    74 000000AD B946000000                  mov ecx, "F"
+    75 000000B2 A840                        test al, dirtyBuffer
+    76 000000B4 7405                        jz .notDirty
+    77 000000B6 B954000000                  mov ecx, "T"
+    78                                  .notDirty:
+    79 000000BB 880D40010000                mov byte [bufferLine.bufferDirtFlag], cl    ;Store T/F for dirty flag
+    80                                  outString:
+    81 000000C1 488D1510010000              lea rdx, bufferLine
+    82 000000C8 B800090000                  mov eax, 0900h  ;Write line to STDOUT
+    83 000000CD CD21                        int 21h
+    84                                  
+    85 000000CF 488B430A                    mov rax, qword [rbx + bufferHdr.bufferLBA]  ;Get the LBA number
+    86 000000D3 53                          push rbx    ;Save the ptr to the buffer on the stack
+    87 000000D4 E86C000000                  call printqword
+    88                                      ;Here we are done, walk the buffer chain
+    89 000000D9 5B                          pop rbx
+    90                                    
+    91 000000DA FE0544010000                inc byte [buffernum]
+    92 000000E0 FE05D3000000                inc byte [lines]
+    93 000000E6 803DCC00000014              cmp byte [lines], 20
+    94 000000ED 7225                        jb .noPause
+    95 000000EF C605C300000000              mov byte [lines], 0 ;Reset counter
+    96 000000F6 F60528010000FF              test byte [pauseSwitch], -1 ;If not set, skip pause
+    97 000000FD 7415                        jz .noPause
+    98 000000FF 488D15B4000000              lea rdx, nextPage
+    99 00000106 B800090000                  mov eax, 0900h
+   100 0000010B CD21                        int 21h
+   101 0000010D B800010000                  mov eax, 0100h
+   102 00000112 CD21                        int 21h
+   103                                  .noPause:
+   104 00000114 488B1B                      mov rbx, qword [rbx + bufferHdr.nextBufPtr]
+   105 00000117 4881FBFFFFFFFF              cmp rbx, -1
+   106 0000011E 0F8516FFFFFF                jne buildBufferLine
+   107                                  
+   108 00000124 488D15E3000000              lea rdx, bufferend
+   109 0000012B B800090000                  mov eax, 0900h
+   110 00000130 CD21                        int 21h
+   111                                      
+   112 00000132 0FB605EB000000              movzx eax, byte [buffernum]
+   113 00000139 E807000000                  call printqword
+   114 0000013E B8004C0000                  mov eax, 4C00h
+   115 00000143 CD21                        int 21h
+   116                                  
+   117                                  printqword:
+   118                                  ;Takes the qword in eax and prints its decimal representation
+   119 00000145 31C9                        xor ecx, ecx
+   120 00000147 31DB                        xor ebx, ebx    ;Store upper 8 nybbles here
+   121 00000149 85C0                        test eax, eax
+   122 0000014B 750C                        jnz .notZero
+   123 0000014D B930000000                  mov ecx, "0"
+   124 00000152 BD01000000                  mov ebp, 1  ;Print one digit
+   125 00000157 EB3E                        jmp short .dpfb2
+   126                                  .notZero:
+   127 00000159 31ED                        xor ebp, ebp  ;Use bp as #of digits counter
+   128 0000015B BE0A000000                  mov esi, 0Ah  ;Divide by 10
+   129                                  .dpfb0:
+   130 00000160 FFC5                        inc ebp
+   131 00000162 81FD08000000                cmp ebp, 8
+   132 00000168 7206                        jb .dpfb00
+   133 0000016A 48C1E308                    shl rbx, 8    ;Space for next nybble
+   134 0000016E EB04                        jmp short .dpfb01
+   135                                  .dpfb00:
+   136 00000170 48C1E108                    shl rcx, 8    ;Space for next nybble
+   137                                  .dpfb01:
+   138 00000174 31D2                        xor edx, edx
+   139 00000176 48F7F6                      div rsi
+   140 00000179 80C230                      add dl, '0'
+   141 0000017C 80FA39                      cmp dl, '9'
+   142 0000017F 7603                        jbe .dpfb1
+   143 00000181 80C207                      add dl, 'A'-'0'-10
+   144                                  .dpfb1:
+   145 00000184 81FD08000000                cmp ebp, 8
+   146 0000018A 7204                        jb .dpfb10
+   147 0000018C 88D3                        mov bl, dl ;Add the bottom bits
+   148 0000018E EB02                        jmp short .dpfb11
+   149                                  .dpfb10:
+   150 00000190 88D1                        mov cl, dl    ;Save remainder byte
+   151                                  .dpfb11:
+   152 00000192 4885C0                      test rax, rax
+   153 00000195 75C9                        jnz .dpfb0
+   154                                  .dpfb2:
+   155 00000197 81FD08000000                cmp ebp, 8
+   156 0000019D 7208                        jb .dpfb20
+   157 0000019F 88DA                        mov dl, bl
+   158 000001A1 48C1EB08                    shr rbx, 8
+   159 000001A5 EB06                        jmp short .dpfb21
+   160                                  .dpfb20:
+   161 000001A7 88CA                        mov dl, cl    ;Get most sig digit into al
+   162 000001A9 48C1E908                    shr rcx, 8    ;Get next digit down
+   163                                  .dpfb21:
+   164 000001AD B402                        mov ah, 02h
+   165 000001AF CD21                        int 21h
+   166 000001B1 FFCD                        dec ebp
+   167 000001B3 75E2                        jnz .dpfb2
+   168                                      return
     13                              <1> %%_ret:
-    14 00000151 C3                  <1>  ret
+    14 000001B5 C3                  <1>  ret
     15                              <1> %assign retOff %%_ret-$$
-   139 00000152 0A0D24                  crlf:   db 0Ah,0Dh,"$"
-   140                                  bufferLine:
-   141 00000155 44726976653A20              db "Drive: "
-   142                                  .driveLetter:   ;Exclaimation mark means free
-   143 0000015C 20207C20547970653A-         db "  | Type: "
-   143 00000165 20                 
-   144                                  .bufferType:  
-   145 00000166 202020207C20526566-         db "    | Ref: "
-   145 0000016F 3A20               
-   146                                  .bufferRefFlag:
-   147 00000171 20207C204469727479-         db "  | Dirty: "
-   147 0000017A 3A20               
-   148                                  .bufferDirtFlag:
-   149 0000017C 20207C20536563746F-         db "  | Sector: $"
-   149 00000185 723A2024           
-   150                                  .bufferSectorNumber: 
-   151                                  bufferLineLen   equ $ - bufferLine
-   152                                  
-   153 00000189 4E756D626572206F66-     bufferend: db "Number of Buffers: $"
-   153 00000192 20427566666572733A-
-   153 0000019B 2024               
-   154 0000019D 00                      buffernum: db 0
-   154          ------------------       info: assembly required 1+2+2 passes
+   169 000001B6 0A0D24                  crlf:       db 0Ah,0Dh,"$"
+   170 000001B9 00                      lines:      db 0
+   171 000001BA 0A0D537472696B6520-     nextPage:   db 0Ah,0Dh,"Strike a key to continue...$"
+   171 000001C3 61206B657920746F20-
+   171 000001CC 636F6E74696E75652E-
+   171 000001D5 2E2E24             
+   172                                  bufferLine:
+   173 000001D8 0A0D44726976653A20          db 0Ah,0Dh,"Drive: "
+   174                                  .driveLetter:   ;Exclaimation mark means free
+   175 000001E1 20207C20547970653A-         db "  | Type: "
+   175 000001EA 20                 
+   176                                  .bufferType:  
+   177 000001EB 202020207C20526566-         db "    | Ref: "
+   177 000001F4 3A20               
+   178                                  .bufferRefFlag:
+   179 000001F6 20207C204469727479-         db "  | Dirty: "
+   179 000001FF 3A20               
+   180                                  .bufferDirtFlag:
+   181 00000201 20207C20536563746F-         db "  | Sector: $"
+   181 0000020A 723A2024           
+   182                                  .bufferSectorNumber: 
+   183                                  bufferLineLen   equ $ - bufferLine
+   184                                  
+   185 0000020E 0A0D4E756D62657220-     bufferend: db 0Ah,0Dh,"Number of Buffers: $"
+   185 00000217 6F6620427566666572-
+   185 00000220 733A2024           
+   186 00000224 00                      buffernum: db 0
+   187 00000225 00                      pauseSwitch: db 0   ;If set, we pause on each page
+   187          ------------------       info: assembly required 1+2+2 passes
 

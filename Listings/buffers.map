@@ -11,14 +11,14 @@ Output file:  ./Binaries/BUFFERS.COM
 -- Sections (summary) ---------------------------------------------------------
 
 Vstart            Start             Stop              Length    Class     Name
-               0                 0               19E  0000019E  progbits  .text
+               0                 0               226  00000226  progbits  .text
 
 -- Sections (detailed) --------------------------------------------------------
 
 ---- Section .text ------------------------------------------------------------
 
 class:     progbits
-length:                 19E
+length:                 226
 start:                    0
 align:     not defined
 follows:   not defined
@@ -151,6 +151,13 @@ Value     Name
 00000020  sysVars.maxBytesSec
 00000022  sysVars.bufHeadPtr
 0000002A  sysVars_size
+00000000  cmdLineArgPtr
+00000000  cmdLineArgPtr.fcb1
+00000010  cmdLineArgPtr.fcb2
+00000024  cmdLineArgPtr.dta
+00000024  cmdLineArgPtr.parmList
+00000025  cmdLineArgPtr.progTail
+000000A4  cmdLineArgPtr_size
 00000001  errInvFnc
 00000002  errFnf
 00000003  errPnf
@@ -221,41 +228,48 @@ Value     Name
 0000000B  eClsMedia
 0000000C  eClsClash
 0000000D  eClsUnk
-00000021  freeDriveMarker
-00000034  bufferLineLen
+0000002D  freeDriveMarker
+00000036  bufferLineLen
 
 
 ---- Section .text ------------------------------------------------------------
 
 Real              Virtual           Name
-              19                19  buildBufferLine
-              24                24  buildBufferLine.notFree
-              26                26  buildBufferLine.putInLetter
-              3A                3A  buildBufferLine.notDosBuf
-              45                45  buildBufferLine.notFatBuffer
-              50                50  buildBufferLine.notDirBuffer
-              55                55  buildBufferLine.putType
-              69                69  buildBufferLine.notRef
-              7D                7D  buildBufferLine.notDirty
-              E1                E1  printqword
-              F5                F5  printqword.notZero
-              FC                FC  printqword.dpfb0
-             10C               10C  printqword.dpfb00
-             110               110  printqword.dpfb01
-             120               120  printqword.dpfb1
-             12C               12C  printqword.dpfb10
-             12E               12E  printqword.dpfb11
-             133               133  printqword.dpfb2
-             143               143  printqword.dpfb20
-             149               149  printqword.dpfb21
-             151               151  ..@19._ret
-             152               152  crlf
-             155               155  bufferLine
-             15C               15C  bufferLine.driveLetter
-             166               166  bufferLine.bufferType
-             171               171  bufferLine.bufferRefFlag
-             17C               17C  bufferLine.bufferDirtFlag
-             189               189  bufferLine.bufferSectorNumber
-             189               189  bufferend
-             19D               19D  buffernum
+              28                28  cmdLineArgPtr.switch
+              2F                2F  cmdLineArgPtr.noSwitch
+              3A                3A  buildBufferLine
+              62                62  buildBufferLine.notFree
+              64                64  buildBufferLine.putInLetter
+              78                78  buildBufferLine.notDosBuf
+              83                83  buildBufferLine.notFatBuffer
+              8E                8E  buildBufferLine.notDirBuffer
+              93                93  buildBufferLine.putType
+              A7                A7  buildBufferLine.notRef
+              BB                BB  buildBufferLine.notDirty
+              C1                C1  outString
+             114               114  outString.noPause
+             145               145  printqword
+             159               159  printqword.notZero
+             160               160  printqword.dpfb0
+             170               170  printqword.dpfb00
+             174               174  printqword.dpfb01
+             184               184  printqword.dpfb1
+             190               190  printqword.dpfb10
+             192               192  printqword.dpfb11
+             197               197  printqword.dpfb2
+             1A7               1A7  printqword.dpfb20
+             1AD               1AD  printqword.dpfb21
+             1B5               1B5  ..@22._ret
+             1B6               1B6  crlf
+             1B9               1B9  lines
+             1BA               1BA  nextPage
+             1D8               1D8  bufferLine
+             1E1               1E1  bufferLine.driveLetter
+             1EB               1EB  bufferLine.bufferType
+             1F6               1F6  bufferLine.bufferRefFlag
+             201               201  bufferLine.bufferDirtFlag
+             20E               20E  bufferLine.bufferSectorNumber
+             20E               20E  bufferend
+             224               224  buffernum
+             225               225  pauseSwitch
 

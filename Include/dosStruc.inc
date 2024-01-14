@@ -219,3 +219,11 @@ struc sysVars
     .maxBytesSec dw ?
     .bufHeadPtr  dq ?
 endstruc
+
+struc cmdLineArgPtr
+    .fcb1       db 16 dup(?)    ;First FCB,    argument 1 
+    .fcb2       db 20 dup(?)    ;Second FCB,   argument 2
+    .dta:   ;Pointer to the default DTA in the PSP
+    .parmList   db ?   ;Number of characters in command tail
+    .progTail   db 127 dup(?) ;Default DTA/Program tail
+endstruc
