@@ -1,0 +1,537 @@
+     1                                  ; Walks the buffer chain and gives prints out the state of the buffers.
+     2                                  
+     3                                  [map all ./Listings/buffers.map]
+     4                                  [DEFAULT REL]
+     5                                  BITS 64
+     6                                  %include "./Include/dosMacro.mac"
+     1                              <1> 
+     2                              <1> ;-------------------------------------------------------------------------------
+     3                              <1> ;Generic Macros file
+     4                              <1> ;The following instruction extensions allow to conditionally return
+     5                              <1> ;The idea was borrowed from the DOS Source Code
+     6                              <1> ;
+     7                              <1> ;-------------------------------------------------------------------------------
+     8                              <1> 
+     9                              <1> ;-------------------------------------------------------------------------------
+    10                              <1> ;These macros are live and must not be touched
+    11                              <1> ;-------------------------------------------------------------------------------
+    12                              <1> %macro return 0
+    13                              <1> %%_ret:
+    14                              <1>     ret
+    15                              <1> %assign retOff %%_ret-$$  ;Get offset into segment of %%_ret
+    16                              <1> %endmacro
+    17                              <1> 
+    18                              <1> %macro cret 1
+    19                              <1> %%_base:
+    20                              <1> %assign baseVar %%_base-$$ ;Get offset into segment of %%_base
+    21                              <1>     %ifdef retOff
+    22                              <1>     %if (baseVar - retOff <= 126) && (baseVar > retOff)
+    23                              <1>     %ifdef currSegVBase
+    24                              <1>     j%+1 short (retOff+currSegVBase)
+    25                              <1>     %else
+    26                              <1>     j%+1 short retOff
+    27                              <1>     %endif  ;End ifdef currSegVBase
+    28                              <1>     %else 
+    29                              <1>     j%-1 short %%a
+    30                              <1>     return
+    31                              <1> %%a:
+    32                              <1>     %endif  ;End the distance measurement if
+    33                              <1>     %else   
+    34                              <1>     j%-1 short %%a
+    35                              <1>     return
+    36                              <1> %%a:
+    37                              <1>     %endif  ;End ifdef retoff
+    38                              <1> %endmacro
+    39                              <1> 
+    40                              <1> %macro retz 0
+    41                              <1> cret z
+    42                              <1> %endmacro
+    43                              <1> 
+    44                              <1> %macro retnz 0
+    45                              <1> cret nz
+    46                              <1> %endmacro
+    47                              <1> 
+    48                              <1> %macro rete 0
+    49                              <1> cret e
+    50                              <1> %endmacro
+    51                              <1> 
+    52                              <1> %macro retne 0
+    53                              <1> cret ne
+    54                              <1> %endmacro
+    55                              <1> 
+    56                              <1> %macro retc 0
+    57                              <1> cret c
+    58                              <1> %endmacro
+    59                              <1> 
+    60                              <1> %macro retnc 0
+    61                              <1> cret nc
+    62                              <1> %endmacro
+    63                              <1> 
+    64                              <1> %macro retb 0
+    65                              <1> cret b
+    66                              <1> %endmacro
+    67                              <1> 
+    68                              <1> %macro retnb 0
+    69                              <1> cret nb
+    70                              <1> %endmacro
+    71                              <1> 
+    72                              <1> %macro reta 0
+    73                              <1> cret a
+    74                              <1> %endmacro
+    75                              <1> 
+    76                              <1> %macro retna 0
+    77                              <1> cret na
+    78                              <1> %endmacro
+    79                              <1> 
+    80                              <1> %macro breakpoint 0
+    81                              <1> xchg bx, bx
+    82                              <1> %endmacro
+     7                                  %include "./Include/dosStruc.inc"
+     1                              <1> 
+     2                              <1> ;-------------------------------------------------------;
+     3                              <1> ; This include file contains miscellaneous internal     ;
+     4                              <1> ; SCP/DOS structures.                                   ;
+     5                              <1> ;-------------------------------------------------------;
+     6                              <1> 
+     7                              <1> ;------------------------------------------------------------------------;
+     8                              <1> ; Each mass storage device up to LASTDRIVE gets a DPB, describing 
+     9                              <1> ; its file system structure. This is used to locate files and structures
+    10                              <1> ; on the device itself and to translate file requests to cluster chains
+    11                              <1> ; to LBAs to pass to the disk driver..
+    12                              <1> ; The DPBs form a linked list, with each DPB formed after the devices 
+    13                              <1> ; drivers Initialise routine has been called.
+    14                              <1> ;------------------------------------------------------------------------;
+    15                              <1> struc dpb        ;Drive Parameter Block
+    16                              <1> 
+    17 00000000 ??                  <1>     .bDriveNumber            resb 1  ;Drive number (0=A, 1=B ...) x
+    18 00000001 ??                  <1>     .bUnitNumber             resb 1  ;Unit number in device x
+    19 00000002 ????                <1>     .wBytesPerSector         resw 1  ;min 512, max 4096 x
+    20 00000004 ??                  <1>     .bMaxSectorInCluster     resb 1  ;(Maximum sector in cluster) - 1 x
+    21 00000005 ??                  <1>     .bSectorsPerClusterShift resb 1  ;Sectors per cluster exponent x
+    22 00000006 ????                <1>     .wFAToffset              resw 1  ;Number of reserved sectors in partition x
+    23 00000008 ??                  <1>     .bNumberOfFATs           resb 1  ;Number of FATs x
+    24 00000009 ????                <1>     .wNumberRootDirEntries   resw 1  ;In 32 byte units, this is 0 for FAT32 x
+    25 0000000B ????????            <1>     .dClusterHeapOffset      resd 1  ;Start sector of data area x
+    26 0000000F ????????            <1>     .dClusterCount           resd 1  ;Total number of clusters in data area x
+    27 00000013 ????????            <1>     .dFATlength              resd 1  ;FAT length, in sectors x
+    28 00000017 ????????            <1>     .dFirstUnitOfRootDir     resd 1  
+    29                              <1>     ;Unit=Sector/Cluster of Root Directory (FAT12/16 = Sector, FAT32 = Cluster)x
+    30 0000001B ????????????????    <1>     .qDriverHeaderPtr        resq 1  ;Pointer to device driver header x
+    31 00000023 ??                  <1>     .bMediaDescriptor        resb 1  ;Media descriptor x
+    32 00000024 ??                  <1>     .bAccessFlag             resb 1  ;Access Flag (0 if accessed, else -1) x
+    33 00000025 ????????????????    <1>     .qNextDPBPtr             resq 1  ;Pointer to next DPB, -1 if at end
+    34 0000002D ????????            <1>     .dFirstFreeCluster       resd 1  ;Starting cluster of free space search x
+    35 00000031 ????????            <1>     .dNumberOfFreeClusters   resd 1  ;Number of free clusters, -1 unknown x
+    36                              <1> 
+    37                              <1> endstruc
+    38                              <1> 
+    39                              <1> fat12MaxClustCnt    equ 4085    ;Cluster count less than this is FAT12
+    40                              <1> fat16MaxClustCnt    equ 65525   ;Cluster count less than this is FAT16
+    41                              <1> ;------------------------------------------------------------------------;
+    42                              <1> ; Each mass storage device up to LASTDRIVE has a CDS associated with it.
+    43                              <1> ; All disk pathing requests go via the CDS for that drive.
+    44                              <1> ; The default drive is the last accessed drive, this number is stored
+    45                              <1> ; in the DOS data area.
+    46                              <1> ; The CDS is stored as an array with the offset into the array being 
+    47                              <1> ; given by the drive letter's offset into the alphabet (with A=0).
+    48                              <1> ;
+    49                              <1> ; DEFAULT LASTDRIVE=E, MINIMUM LASTDRIVE=B
+    50                              <1> ;------------------------------------------------------------------------;
+    51                              <1> struc cds       ;Current Directory structure
+    52 00000000 <res 43h>           <1>     .sCurrentPath        db 67 dup (?)    ;Current Directory Path String
+    53 00000043 ????                <1>     .wFlags              dw ?   ;CDS Flags - 
+    54 00000045 ????????????????    <1>     .qDPBPtr             dq ?   ;Ptr to the DPB of the dev using this CDS
+    55 0000004D ????????            <1>     .dStartCluster       dd ?   ;Starting cluster of the directory on disk
+    56 00000051 ????????????????    <1>     .qIFSPtr             dq ?   ;Reserved for IFS driver expansions
+    57 00000059 ????????            <1>     .dNetStore           dd ?   ;For storing a owner dword for IFS (41h/5F03h)
+    58 0000005D ????                <1>     .wBackslashOffset    dw ?   ;How many chars to skip for getting the path
+    59                              <1> ; currentPath (usually 2 to skip C: in C:\, but when SUBSTing a drive letter to 
+    60                              <1> ; another, we save the number of chars to skip to that deep level).
+    61                              <1> ; I.E. if we SUBST A:\DOS G: then this value for the CDS for drive G is 6
+    62                              <1> ; Only affects for SUBST drives, not JOIN
+    63                              <1> ; Flags: Bit 15 set = Network drive
+    64                              <1> ;        Bit 14 set = Physical drive
+    65                              <1> ;        Bit 13 set = JOIN'ed drive
+    66                              <1> ;        Bit 12 set = SUBST'ed drive
+    67                              <1> ;        Bit 7  set = Redirected, not net. drive (This is how MSCDEX worked)
+    68                              <1> endstruc
+    69                              <1> ;CDS equates
+    70                              <1> cdsRedirDrive   equ 8000h   ;All drives which use the Redirector interface
+    71                              <1> cdsValidDrive   equ 4000h   ;CDS valid
+    72                              <1> cdsJoinDrive    equ 2000h   ;CDS for joined drives
+    73                              <1> cdsSubstDrive   equ 1000h   ;Drives formed by Subst
+    74                              <1> cdsRdirLocDrive equ 0080h   ;Redirector but Local
+    75                              <1> ;------------------------------------------------------------------------;
+    76                              <1> ; The SFT is a way to allow applications to open file handles to files 
+    77                              <1> ; and devices. As things stand, the SFT chain will have 5 file handles
+    78                              <1> ; under the first header, and then a second header will be linked to the 
+    79                              <1> ; first one after CONFIG.SYS has been read, to allow for FILES= to specify
+    80                              <1> ; a size for the second SFT (default 10 files). Same for System FCBs, 
+    81                              <1> ; using the FCBS= command. Default FCBS=5.
+    82                              <1> ;
+    83                              <1> ; A file handle describes the file, and the location within the file that
+    84                              <1> ; we are reading. The file handle can be manipulated without the file
+    85                              <1> ; being in memory, thus allowing the user to access data without needing 
+    86                              <1> ; to take up large portions of memory. Similarly, file handles allow for
+    87                              <1> ; accessing devices, by treating them as files with their drivers 
+    88                              <1> ; responding and translating the manipulations of the file handle itself.
+    89                              <1> ; Neither the driver nor the application should see or use the SFT for
+    90                              <1> ; the handle, as it is subject to change (and will change when file 
+    91                              <1> ; sharing provisions are included). The DOS will make requests to the 
+    92                              <1> ; driver in a generic way and the driver will respond, with DOS keeping
+    93                              <1> ; track of the information in the SFT entry for that handle. 
+    94                              <1> ;
+    95                              <1> ; One SFT entry can have multiple handles and multiple SFT entries
+    96                              <1> ; can point to the same file. It all depends on what the applications 
+    97                              <1> ; want to do with the File.
+    98                              <1> ;
+    99                              <1> ; !!!!IMPORTANT!!!!
+   100                              <1> ; Currently there are plans for File Sharing, but I include minimal 
+   101                              <1> ; provisions for it. I really just wanna get a DOS out the door.
+   102                              <1> ;
+   103                              <1> ;Each SFT may look like this:
+   104                              <1> ;sysvars-->sfth------------>sfth------------>|ENDOFLIST|
+   105                              <1> ;            |                |
+   106                              <1> ;       wNumFiles*sft    wNumFiles*sft
+   107                              <1> ;
+   108                              <1> ; Two SFT chains are built; one for files, and a one for so called 
+   109                              <1> ; System FCBs.
+   110                              <1> ;
+   111                              <1> ; Each SFT header has an array of SFT's below it, with the number of 
+   112                              <1> ; SFTs given by wNumFiles. The SFT headers form a linked list.
+   113                              <1> ;
+   114                              <1> ; DEFAULT FILES=8, MINIMUM FILES=5
+   115                              <1> ; DEFAULT FCBS=5,  MINIMUM FCBS=5
+   116                              <1> ;------------------------------------------------------------------------;
+   117                              <1> struc sfth   ;System file table header
+   118                              <1> ; This is the SFT header.
+   119                              <1> ; This structure comes before the start of the first file in the array/table.
+   120 00000000 ????????????????    <1>     .qNextSFTPtr resq 1    ;Pointer to the next SFT
+   121 00000008 ????                <1>     .wNumFiles   resw 1    ;Number of files in this table
+   122                              <1> endstruc
+   123                              <1> 
+   124                              <1> struc sft
+   125                              <1> ;This is the file struc itself
+   126 00000000 ????                <1>     .wNumHandles resw 1    ;Number of handles pointing to this file
+   127 00000002 ????                <1>     .wOpenMode   resw 1    ;File access permissions and behvaiours
+   128 00000004 ??                  <1>     .bFileAttrib resb 1    ;Regular File Attributes
+   129 00000005 ????                <1>     .wDeviceInfo resw 1    ;Includes unit number if a block device
+   130 00000007 ????????????????    <1>     .qPtr        resq 1    ;IF char, ptr to device driver header, ELSE DPBptr
+   131 0000000F ????????            <1>     .dStartClust resd 1    ;Start cluster of file pointed to by SFT entry
+   132 00000013 ????                <1>     .wTime       resw 1    ;File Time, updated on open and writes
+   133 00000015 ????                <1>     .wDate       resw 1    ;File Date, updated on open and writes
+   134 00000017 ????????            <1>     .dFileSize   resd 1    ;File Size, in bytes
+   135 0000001B ????????            <1>     .dCurntOff   resd 1    ;Current Offset pointed to by SFT entry, in bytes
+   136 0000001F ????????            <1>     .dRelClust   resd 1    ;Rel cluster pointed to by SFT entry
+   137 00000023 ????????            <1>     .dAbsClusr   resd 1    ;Absolute cluster pointed to by SFT entry
+   138 00000027 ????????????????    <1>     .qDirSect    resq 1    ;Abs number of sector containing directory entry 
+   139 0000002F ??                  <1>     .bNumDirEnt  resb 1    ;Directory entry within dir sector (byte offset/32)
+   140 00000030 <res Bh>            <1>     .sFileName   resb 11   ;8.3 Filename
+   141 0000003B ????????????????    <1>     .qSharePtr   resq 1    ;SHARE pointer to previous SFT sharing same file
+   142 00000043 ????                <1>     .wMachNum    resw 1    ;SHARE number of network machine opening file
+   143 00000045 ????????????????    <1>     .qPSPOwner   resq 1    ;Addr of PSP of program which first opened this file
+   144 0000004D ????                <1>     .wShareRec   resw 1    ;offset within SHARE code segment of sharing record
+   145                              <1> ;                           0 means no record
+   146                              <1> endstruc
+   147                              <1> ;Open Mode equates
+   148                              <1> ;Access modes   Bits[2:0]
+   149                              <1> ReadAccess      equ 0h
+   150                              <1> WriteAccess     equ 1h
+   151                              <1> RWAccess        equ 2h
+   152                              <1> ;Bit 3 reserved 0
+   153                              <1> ;Sharing modes  Bits[6:4]
+   154                              <1> CompatShare     equ 0h
+   155                              <1> denyRWShare     equ 10h
+   156                              <1> denyWriteShare  equ 20h
+   157                              <1> denyReadShare   equ 30h
+   158                              <1> denyNoneShare   equ 40h
+   159                              <1> netFCBShare     equ 70h
+   160                              <1> noInherit       equ 80h
+   161                              <1> ;Bits 8-12 reserved 0
+   162                              <1> 
+   163                              <1> diskFullFail    equ 2000h   ;DO NOT USE. IF set, Trigger Int 24h on disk full.
+   164                              <1> ;Buffering on writes
+   165                              <1> noBufferWrites  equ 4000h   ;If set, dont buffer writes, always update disk
+   166                              <1> ;FCB opened file, shouldn't see this as we are depreciating FCB's completely now
+   167                              <1> FCBopenedFile   equ 8000h   ;If set, file is opened by FCB, else SFT
+   168                              <1> ;Attribute Byte
+   169                              <1> readOnlyFile    equ 1h
+   170                              <1> hiddenFile      equ 2h
+   171                              <1> systemFile      equ 4h
+   172                              <1> volumeLabel     equ 8h
+   173                              <1> directoryFile   equ 10h ;Directory entry
+   174                              <1> archiveFile     equ 20h
+   175                              <1> ;Device Info equates
+   176                              <1> ;For a block device, bits [5:0] contain the drive number
+   177                              <1> charDevConIn    equ 1h  ;If set, device is CON input
+   178                              <1> charDevConOut   equ 2h  ;If set, device is CON output
+   179                              <1> charDevNulDev   equ 4h  ;If set, device is NULL device
+   180                              <1> charDevClockDev equ 8h  ;If set, device is CLOCK device
+   181                              <1> charDevFastOut  equ 10h ;If set, device supports Int 29h
+   182                              <1> charDevBinary   equ 20h ;If set, r/w char device in Binary mode!!!
+   183                              <1> charDevNoEOF    equ 40h ;If set, no EOF when reading from device!!
+   184                              <1> blokFileNoFlush equ 40h ;Set if file has not yet been accessed (sol no flush!)
+   185                              <1> devCharDev      equ 80h ;If set, it is a char device!
+   186                              <1> charDevNetSpool equ 800h    ;If set, device is a network spooler
+   187                              <1> devNoInherit    equ 1000h   ;If set, handle not inherited by child processes
+   188                              <1> charDevNamePipe equ 2000h   ;If set, device is a named pipe
+   189                              <1> blokNoDTonClose equ 4000h   ;If set, dont update date and time when closing
+   190                              <1> devRedirDev     equ 8000h   ;If set, dev/file is redirected!
+   191                              <1>  
+   192                              <1> struc bufferHdr
+   193 00000000 ????????????????    <1>     .nextBufPtr  resq  1   ;Pointer to the next buffer in the chain or -1 at end
+   194 00000008 ??                  <1>     .driveNumber resb  1   ;Drive number the buffer is used for (or -1 for free)
+   195 00000009 ??                  <1>     .bufferFlags resb  1   ;Standard Flags
+   196 0000000A ????????????????    <1>     .bufferLBA   resq  1   ;LBA the buffer contains
+   197 00000012 ??                  <1>     .bufFATcopy  resb  1   ;Number of copies of the FAT to write (1 if non-FAT)
+   198 00000013 ????????            <1>     .bufFATsize  resd  1   ;Number of sectors per FAT (or 0 if non-FAT)
+   199 00000017 ????????????????    <1>     .driveDPBPtr resq  1   ;Pointer to the device DPB block
+   200 0000001F ????????????????    <1>     .owningFile  resq  1   ;Ptr to SFT/FCBS which owns buff (-1 if not in chain)
+   201 00000027 <res 9h>            <1>     .reserved    resb  9   ;Alignment bytes
+   202                              <1>     .dataarea:             ;Points to the start of the data area
+   203                              <1> endstruc
+   204                              <1> ;Buffer Flag equates
+   205                              <1> dosBuffer   equ 1h  ;Sector 0 (BPB/VPB) in buffer
+   206                              <1> fatBuffer   equ 2h  ;FAT sector in buffer
+   207                              <1> dirBuffer   equ 4h  ;Directory sector in buffer
+   208                              <1> dataBuffer  equ 8h  ;File Data sector in buffer
+   209                              <1> refBuffer   equ 20h ;Data in buffer has been referenced by an application
+   210                              <1> dirtyBuffer equ 40h ;Data in buffer modified by an application
+   211                              <1> ;Note! A buffer is marked as referenced only when the application 
+   212                              <1> ; is done with that buffer OR if a hard error has occured (both read and write)
+   213                              <1> 
+   214                              <1> struc sysVars
+   215 00000000 ????????????????    <1>     .dpbHeadPtr  dq ?
+   216 00000008 ????????????????    <1>     .sftHeadPtr  dq ?    
+   217 00000010 ????????????????    <1>     .clockPtr    dq ? 
+   218 00000018 ????????????????    <1>     .vConPtr     dq ?
+   219 00000020 ????                <1>     .maxBytesSec dw ?
+   220 00000022 ????????????????    <1>     .bufHeadPtr  dq ?
+   221                              <1> endstruc
+     8                                  %include "./Include/dosError.inc"
+     1                              <1> ;DOS Error codes
+     2                              <1> 
+     3                              <1> ;Extended Error Codes
+     4                              <1> errInvFnc   equ 1   ;Invalid function number
+     5                              <1> errFnf      equ 2   ;File not found
+     6                              <1> errPnf      equ 3   ;Path not found
+     7                              <1> errNhl      equ 4   ;Too many open handles, no handles left
+     8                              <1> errAccDen   equ 5   ;Access denied (to resource)
+     9                              <1> errBadHdl   equ 6   ;Invalid handle
+    10                              <1> errMCBbad   equ 7   ;MCB's destroyed
+    11                              <1> errNoMem    equ 8   ;Insufficient memory
+    12                              <1> errMemAddr  equ 9   ;Invalid Memory Block Address
+    13                              <1> errBadEnv   equ 10  ;Invalid environment
+    14                              <1> errBadFmt   equ 11  ;Invalid format (path etc)
+    15                              <1> errAccCde   equ 12  ;Invalid Access Code    ?
+    16                              <1> errInvDat   equ 13  ;Invalid data
+    17                              <1> ;           equ 14  ;Reserved
+    18                              <1> errBadDrv   equ 15  ;Invalid drive specified
+    19                              <1> errDelCD    equ 16  ;Attempt to delete the current directory
+    20                              <1> errDevUnk   equ 17  ;Not the same device (Device Unknown)
+    21                              <1> errNoFil    equ 18  ;No more files, no match found
+    22                              <1> ;The following are Driver error codes + 19
+    23                              <1> drvErrShft  equ 19  ;Used to shift Driver error codes to extended error codes
+    24                              <1> errWpd      equ 19  ;Attempt to write on write protected disk
+    25                              <1> errUnkUnt   equ 20  ;Unknown Unit
+    26                              <1> errDrvNR    equ 21  ;Drive not ready
+    27                              <1> errUnkCmd   equ 22  ;Unknown Command
+    28                              <1> errCRCerr   equ 23  ;Data (CRC) error
+    29                              <1> errBadRLn   equ 24  ;Bad request structure length
+    30                              <1> errSekErr   equ 25  ;Seek error
+    31                              <1> errUnkMed   equ 26  ;Unknown media type
+    32                              <1> errSecNF    equ 27  ;Sector not Found
+    33                              <1> errNoPap    equ 28  ;Printer out of paper
+    34                              <1> errWF       equ 29  ;Write fault
+    35                              <1> errRF       equ 30  ;Read fault
+    36                              <1> errGF       equ 31  ;General fault
+    37                              <1> ;----------------------------------------------
+    38                              <1> ;The following two go inbetween the Disk errors
+    39                              <1> errShrVio   equ 32  ;Sharing violations
+    40                              <1> errLokVio   equ 33  ;File Lock violation
+    41                              <1> ;----------------------------------------------
+    42                              <1> errIDC      equ 34  ;Driver code, Invalid Disk Change
+    43                              <1> errNoFCB    equ 35  ;FCB unavailable
+    44                              <1> errShrFul   equ 36  ;Sharing buffer full
+    45                              <1> 
+    46                              <1> errNoNet    equ 50  ;Network request not supported, generic net fail
+    47                              <1> 
+    48                              <1> errFilExist equ 80  ;File already exists
+    49                              <1> errDirExist equ 82  ;Directory already exists
+    50                              <1> errFI44     equ 83  ;Fail on Int 24h
+    51                              <1> errRedir    equ 84  ;Too many levels of redirection
+    52                              <1> errDupRedir equ 85  ;Trying to redirect a redirection
+    53                              <1> errBadPass  equ 86  ;Bad password
+    54                              <1> errBadParam equ 87  ;Bad parameter passed to request
+    55                              <1> errNetWrite equ 88  ;Network Write Fault
+    56                              <1> ;-----------------------------------------------------------------------------
+    57                              <1> ;Error Loci
+    58                              <1> eLocUnk     equ 1   ;Unknown locus, nonspecific or not appropriate
+    59                              <1> eLocDsk     equ 2   ;Disk, related to Random Access to a disk or block device
+    60                              <1> eLocNet     equ 3   ;Network related issues, shouldnt affect us (yet!)
+    61                              <1> eLocChr     equ 4   ;Serial/Character Device error
+    62                              <1> eLocMem     equ 5   ;Related to RAM
+    63                              <1> ;-----------------------------------------------------------------------------
+    64                              <1> ;Error Actions
+    65                              <1> eActRet     equ 1   ;Retry
+    66                              <1> eActDRet    equ 2   ;Delay then retry (Try again later)
+    67                              <1> eActUsr     equ 3   ;Ask user to re-input data, i.e. bad filename or something
+    68                              <1> eActAbt     equ 4   ;Abort with cleanup
+    69                              <1> eActKil     equ 5   ;Abort without cleanup
+    70                              <1> eActIgn     equ 6   ;Ignore error
+    71                              <1> eActRetUsr  equ 7   ;Retry after user intervention (i.e swap remdev)
+    72                              <1> ;-----------------------------------------------------------------------------
+    73                              <1> ;Error classes
+    74                              <1> eClsOoR     equ 1   ;Out of resources, no mem or handles
+    75                              <1> eClsTS      equ 2   ;Temp sitch, should go away
+    76                              <1> eClsAuth    equ 3   ;Authorisation, e.g. file permission error 
+    77                              <1> eClsInt     equ 4   ;Internal DOS error or bug
+    78                              <1> eClsHrdFlt  equ 5   ;Hardware Failure
+    79                              <1> eClsSysFlt  equ 6   ;System Failure, i.e. missing or bad cfg files
+    80                              <1> eClsAppFlt  equ 7   ;Application Program error, inconsistent requests etc...
+    81                              <1> eClsNotFnd  equ 8   ;Resource not found (such as free SFT entry etc...)
+    82                              <1> eClsBadFmt  equ 9   ;Bad format for resource
+    83                              <1> eClsLocked  equ 10  ;Resource Locked
+    84                              <1> eClsMedia   equ 11  ;Error is on medium, i.e. wrong or damaged remdev
+    85                              <1> eClsClash   equ 12  ;Resource already exists!
+    86                              <1> eClsUnk     equ 13  ;Unknown class
+     9                                  freeDriveMarker equ "!"
+    10                                  
+    11 00000000 488D1525010000              lea rdx, crlf
+    12 00000007 B800090000                  mov eax, 0900h
+    13 0000000C CD21                        int 21h    
+    14                                      
+    15 0000000E B800520000                  mov eax, 5200h
+    16 00000013 CD21                        int 21h
+    17 00000015 488B5B22                    mov rbx, qword [rbx + sysVars.bufHeadPtr]   ;Get the start of the buffer head pointer
+    18                                  .buildBufferLine:
+    19                                      ;Here we start building it properly
+    20 00000019 8A4308                      mov al, byte [rbx + bufferHdr.driveNumber]
+    21 0000001C 3CFF                        cmp al, -1
+    22 0000001E 7504                        jne .notFree
+    23 00000020 B021                        mov al, freeDriveMarker
+    24 00000022 EB02                        jmp short .putInLetter
+    25                                  .notFree:
+    26 00000024 0441                        add al, "A" ;Convert from 0 based drive number to drive letter
+    27                                  .putInLetter:
+    28 00000026 88050A010000                mov byte [bufferLine.driveLetter], al
+    29 0000002C 8A4309                      mov al, byte [rbx + bufferHdr.bufferFlags]  ;Get the flags
+    30 0000002F A801                        test al, dosBuffer
+    31 00000031 7407                        jz .notDosBuf
+    32 00000033 B9444F5320                  mov ecx, "DOS "
+    33 00000038 EB1B                        jmp short .putType
+    34                                  .notDosBuf:
+    35 0000003A A802                        test al, fatBuffer
+    36 0000003C 7407                        jz .notFatBuffer
+    37 0000003E B946415420                  mov ecx, "FAT "
+    38 00000043 EB10                        jmp short .putType
+    39                                  .notFatBuffer:
+    40 00000045 A804                        test al, dirBuffer
+    41 00000047 7407                        jz .notDirBuffer
+    42 00000049 B944495220                  mov ecx, "DIR "
+    43 0000004E EB05                        jmp short .putType
+    44                                  .notDirBuffer:
+    45 00000050 B944415441                  mov ecx, "DATA"
+    46                                  .putType:
+    47 00000055 890DE5000000                mov dword [bufferLine.bufferType], ecx  ;Store the string
+    48 0000005B B946000000                  mov ecx, "F"
+    49 00000060 A820                        test al, refBuffer  ;Is this a refBuffer
+    50 00000062 7405                        jz .notRef
+    51 00000064 B954000000                  mov ecx, "T"
+    52                                  .notRef:
+    53 00000069 880DDC000000                mov byte [bufferLine.bufferRefFlag], cl ;Store T/F for referenced flag
+    54 0000006F B946000000                  mov ecx, "F"
+    55 00000074 A840                        test al, dirtyBuffer
+    56 00000076 7405                        jz .notDirty
+    57 00000078 B954000000                  mov ecx, "T"
+    58                                  .notDirty:
+    59 0000007D 880DD3000000                mov byte [bufferLine.bufferDirtFlag], cl    ;Store T/F for dirty flag
+    60 00000083 488D15A5000000              lea rdx, bufferLine
+    61 0000008A B800090000                  mov eax, 0900h  ;Write line to STDOUT
+    62 0000008F CD21                        int 21h
+    63                                  
+    64 00000091 488B430A                    mov rax, qword [rbx + bufferHdr.bufferLBA]  ;Get the LBA number
+    65 00000095 53                          push rbx    ;Save the ptr to the buffer on the stack
+    66                                  ;Takes the qword in eax and prints its decimal representation
+    67 00000096 31C9                        xor ecx, ecx
+    68 00000098 31DB                        xor ebx, ebx    ;Store upper 8 nybbles here
+    69 0000009A 85C0                        test eax, eax
+    70 0000009C 750C                        jnz .notZero
+    71 0000009E B930000000                  mov ecx, "0"
+    72 000000A3 BD01000000                  mov ebp, 1  ;Print one digit
+    73 000000A8 EB3E                        jmp short .dpfb2
+    74                                  .notZero:
+    75 000000AA 31ED                        xor ebp, ebp  ;Use bp as #of digits counter
+    76 000000AC BE0A000000                  mov esi, 0Ah  ;Divide by 10
+    77                                  .dpfb0:
+    78 000000B1 FFC5                        inc ebp
+    79 000000B3 81FD08000000                cmp ebp, 8
+    80 000000B9 7206                        jb .dpfb00
+    81 000000BB 48C1E308                    shl rbx, 8    ;Space for next nybble
+    82 000000BF EB04                        jmp short .dpfb01
+    83                                  .dpfb00:
+    84 000000C1 48C1E108                    shl rcx, 8    ;Space for next nybble
+    85                                  .dpfb01:
+    86 000000C5 31D2                        xor edx, edx
+    87 000000C7 48F7F6                      div rsi
+    88 000000CA 80C230                      add dl, '0'
+    89 000000CD 80FA39                      cmp dl, '9'
+    90 000000D0 7603                        jbe .dpfb1
+    91 000000D2 80C207                      add dl, 'A'-'0'-10
+    92                                  .dpfb1:
+    93 000000D5 81FD08000000                cmp ebp, 8
+    94 000000DB 7204                        jb .dpfb10
+    95 000000DD 88D3                        mov bl, dl ;Add the bottom bits
+    96 000000DF EB02                        jmp short .dpfb11
+    97                                  .dpfb10:
+    98 000000E1 88D1                        mov cl, dl    ;Save remainder byte
+    99                                  .dpfb11:
+   100 000000E3 4885C0                      test rax, rax
+   101 000000E6 75C9                        jnz .dpfb0
+   102                                  .dpfb2:
+   103 000000E8 81FD08000000                cmp ebp, 8
+   104 000000EE 7208                        jb .dpfb20
+   105 000000F0 88DA                        mov dl, bl
+   106 000000F2 48C1EB08                    shr rbx, 8
+   107 000000F6 EB06                        jmp short .dpfb21
+   108                                  .dpfb20:
+   109 000000F8 88CA                        mov dl, cl    ;Get most sig digit into al
+   110 000000FA 48C1E908                    shr rcx, 8    ;Get next digit down
+   111                                  .dpfb21:
+   112 000000FE B402                        mov ah, 02h
+   113 00000100 CD21                        int 21h
+   114 00000102 FFCD                        dec ebp
+   115 00000104 75E2                        jnz .dpfb2
+   116                                      ;Here we are done, walk the buffer chain
+   117 00000106 5B                          pop rbx
+   118                                  
+   119 00000107 488D151E000000              lea rdx, crlf
+   120 0000010E B800090000                  mov eax, 0900h
+   121 00000113 CD21                        int 21h    
+   122                                  
+   123 00000115 488B1B                      mov rbx, qword [rbx + bufferHdr.nextBufPtr]
+   124 00000118 4881FBFFFFFFFF              cmp rbx, -1
+   125 0000011F 0F85F4FEFFFF                jne .buildBufferLine
+   126 00000125 B8004C0000                  mov eax, 4C00h
+   127 0000012A CD21                        int 21h
+   128                                  
+   129 0000012C 0A0D24                  crlf:   db 0Ah,0Dh,"$"
+   130                                  
+   131                                  bufferLine:
+   132 0000012F 44726976653A20              db "Drive: "
+   133                                  .driveLetter:   ;Exclaimation mark means free
+   134 00000136 20207C20547970653A-         db "  | Type: "
+   134 0000013F 20                 
+   135                                  .bufferType:  
+   136 00000140 202020207C20526566-         db "    | Ref: "
+   136 00000149 3A20               
+   137                                  .bufferRefFlag:
+   138 0000014B 20207C204469727479-         db "  | Dirty: "
+   138 00000154 3A20               
+   139                                  .bufferDirtFlag:
+   140 00000156 20207C20536563746F-         db "  | Sector: $"
+   140 0000015F 723A2024           
+   141                                  .bufferSectorNumber: 
+   142                                  bufferLineLen   equ $ - bufferLine
+   142          ------------------       info: assembly required 1+2+2 passes
+
