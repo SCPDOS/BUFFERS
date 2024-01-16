@@ -98,7 +98,7 @@ outString:
     lea rdx, nextPage
     mov eax, 0900h
     int 21h
-    mov eax, 0100h
+    mov eax, 0800h  ;Wait for input w/o echoing to screen
     int 21h
 .noPause:
     mov rbx, qword [rbx + bufferHdr.nextBufPtr]

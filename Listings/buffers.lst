@@ -496,7 +496,7 @@
     98 000000FF 488D15B4000000              lea rdx, nextPage
     99 00000106 B800090000                  mov eax, 0900h
    100 0000010B CD21                        int 21h
-   101 0000010D B800010000                  mov eax, 0100h
+   101 0000010D B800080000                  mov eax, 0800h  ;Wait for input w/o echoing to screen
    102 00000112 CD21                        int 21h
    103                                  .noPause:
    104 00000114 488B1B                      mov rbx, qword [rbx + bufferHdr.nextBufPtr]
