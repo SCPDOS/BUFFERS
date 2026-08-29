@@ -2,7 +2,7 @@
 - NASM Map file ---------------------------------------------------------------
 
 Source file:  buffers.asm
-Output file:  ./Binaries/BUFFERS.COM
+Output file:  ./bin/BUFFERS.COM
 
 -- Program origin -------------------------------------------------------------
 

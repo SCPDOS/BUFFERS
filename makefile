@@ -1,4 +1,4 @@
 #!/bin/sh
 
 buffer:
-	nasm buffers.asm -o ./Binaries/BUFFERS.COM -f bin -l ./Listings/buffers.lst -O0v
+	nasm buffers.asm -o ./bin/BUFFERS.COM -f bin -l ./lst/buffers.lst -O0v

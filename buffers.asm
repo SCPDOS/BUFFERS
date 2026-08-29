@@ -4,12 +4,12 @@
 ; Walks the buffer chain and gives prints out the state of the buffers.
 ;If you pass a /P (or -P on if you unix up the system), it will pause on 
 ; each page.
-[map all ./Listings/buffers.map]
+[map all ./lst/buffers.map]
 [DEFAULT REL]
 BITS 64
-%include "./Include/dosMacro.mac"
-%include "./Include/dosStruc.inc"
-%include "./Include/dosError.inc"
+%include "./inc/dosMacro.mac"
+%include "./inc/dosStruc.inc"
+%include "./inc/dosError.inc"
 freeDriveMarker equ "-"
     mov eax, 3700h  ;Get switch char in dl
     int 21h
